@@ -1,3 +1,4 @@
 PyGithub
 gitpython
 docker
+travispy
