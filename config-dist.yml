@@ -1,0 +1,5 @@
+github:
+  access_token: 0000000000000000000000000000000000000000
+
+target:
+  - dnsl48/silverstripe-admin

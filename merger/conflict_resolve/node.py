@@ -6,6 +6,12 @@ import os
 from . import ConflictResolver
 
 class NodeJsNaiveResolver(ConflictResolver):
+    '''
+    Trying to resolve conflicts around JavaScript bundles.
+    Follows the convention that the bundles must be placed in "client/dist/".
+    Recognizes the conflict by looking for 'client/dist/js/bundle.js' file
+    '''
+
     _docker_client = None
 
     def __init__(self, docker_client):
@@ -43,7 +49,6 @@ class NodeJsNaiveResolver(ConflictResolver):
 
         return node_version
 
-
     def isKnown(self, git_repo):
         if 'client/dist/js/bundle.js' not in git_repo.index.unmerged_blobs().keys():
             return False
@@ -63,7 +68,6 @@ class NodeJsNaiveResolver(ConflictResolver):
 
         self._docker_client.images.pull(node_image)
 
-        import ipdb; ipdb.set_trace()
         result = self._docker_client.containers.run(
             node_image,
             r'bash -lc "cd /app/ && yarn && yarn build && echo THIS_IS_HUGE_SUCCESS"',
@@ -72,7 +76,7 @@ class NodeJsNaiveResolver(ConflictResolver):
                 'bind': '/app',
                 'mode': 'rw'
             }}
-        ).decode('utf8').split('\n')
+        ).decode('utf8').strip().split('\n')
 
         if result[-1] == 'THIS_IS_HUGE_SUCCESS':
             git_repo.git.add('client/dist/')

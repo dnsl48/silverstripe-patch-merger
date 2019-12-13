@@ -6,7 +6,7 @@ import git
 from .mixin import ComparableMixin
 
 class Branch(ComparableMixin):
-    _regex_minor = re.compile('(\d+)\.(\d+)')
+    _regex_minor = re.compile(r'(\d+)\.(\d+)')
     _branch = None
 
     @classmethod
@@ -51,13 +51,15 @@ class MinorBranch(Branch):
     def _cmpkey(self):
         return (self._v_major, self._v_minor)
 
-class Repo:
+class ProxyRepo:
+    _target = None
     _github_repo = None
     _git_repo = None
     _branches = []
 
-    def __init__(self, github_repo):
-        self._github_repo = github_repo
+    def __init__(self, target):
+        self._target = target
+        self._github_repo = target.github_repo
 
         _path = '/tmp/ss-merger-{}'.format(self._github_repo.id)
         if os.path.exists(_path):
@@ -65,7 +67,7 @@ class Repo:
         else:
             self._git_repo = git.Repo.clone_from(self._github_repo.clone_url, _path)
 
-        for github_branch in github_repo.get_branches():
+        for github_branch in self._github_repo.get_branches():
             branch = Branch.create(github_branch)
             if not branch:
                 continue
@@ -93,6 +95,8 @@ class Repo:
         for branch in self.branches:
             self._git_repo.create_head(branch.name, origin.refs[branch.name].commit)
 
+        self._git_repo.create_remote('mergeup_fork', self._target.fork.github_repo.ssh_url)
+
     def mergeUp(self, conflict_resolvers):
         idx = 1
 
@@ -104,36 +108,32 @@ class Repo:
         src = self.branches[idx].name
         dst = self.branches[idx+1].name
 
+        mergeup_commit_message = 'Merge-up "{}" into "{}"'.format(src, dst)
+
         src_head = self._git_repo.heads[src]
         dst_head = self._git_repo.heads[dst]
         dst_head.checkout()
 
-        try:
-            import ipdb; ipdb.set_trace()
-            self._git_repo.git.merge(src_head)
+        dst_original_commit = dst_head.commit
 
-            import ipdb; ipdb.set_trace()
+        try:
+            self._git_repo.git.merge(src_head, message=mergeup_commit_message, commit=True)
+
         except:
             if len(self._git_repo.index.unmerged_blobs()):
                 self._resolveConflicts(conflict_resolvers)
             else:
-                raise Exception('weirdo...')
-                # return False
+                raise Exception("Not sure what's conflicting...")
 
-        import ipdb; ipdb.set_trace()
+            if len(self._git_repo.index.unmerged_blobs()):
+                raise Exception('Unresolved conflicts!')
 
-        # merge_base = self._git_repo.merge_base(src_head, dst_head)
-        # index = self._git_repo.index.merge_tree(src_head, base=merge_base)
-        # import ipdb; ipdb.set_trace()
+            self._git_repo.git.commit(message=mergeup_commit_message)
 
-        if not self._git_repo.index.diff():
-            return
+        dst_mergeup_commit = self._git_repo.commit()
 
-        # self._git_repo.index.merge_tree(dst_head, base=merge_base)
-
-        pass
-
-        # self._git_repo.heads[src]
+        if dst_mergeup_commit != dst_original_commit:
+            self._pushMergedBranch(dst)
 
     def _resolveConflicts(self, conflict_resolvers):
         for resolver in conflict_resolvers:
@@ -142,3 +142,11 @@ class Repo:
                     resolver.resolve(self._git_repo)
                 except:
                     pass
+
+    def _pushMergedBranch(self, dst_name):
+        the_branch = 'merge-up/{}'.format(dst_name)
+
+        self._git_repo.git.checkout(b=the_branch)
+        self._git_repo.git.push('mergeup_fork', the_branch)
+
+        return True

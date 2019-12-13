@@ -5,3 +5,4 @@ lib
 lib64
 share
 __pycache__
+config.yml
