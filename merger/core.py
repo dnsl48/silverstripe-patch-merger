@@ -1,5 +1,4 @@
-# from .model import Repo  # , Branch
-# from .repo import get_repository
+import logging
 from github import Github
 
 class Core:
@@ -35,14 +34,35 @@ class Target:
         self._github = core.github
         self._github_org = None
         self._github_repo = None
+        self._config = {}
         self._configure(config)
 
+    def config(self, key, default=None):
+        return self._config.get(key, default)
+
     def _configure(self, config):
-        if type(config) == str:
+        self._config = {
+            'merge-majors': False,
+            'only': [],
+            'skip': []
+        }
+
+        if type(config) is str:
             self._configure_string(config)
+
+        elif type(config) is dict:
+            self._configure_dict(config)
 
         else:
             raise Exception('Unimplemented target configuration')
+
+    def _configure_dict(self, config):
+        if 'repo' not in config:
+            raise Exception('"repo" is undefined on the target')
+
+        self._config.update(config)
+
+        self._configure_string(config['repo'])
 
     def _configure_string(self, repository_address):
         '''Configure target from a string which would usually be a repository\n'''
@@ -87,3 +107,6 @@ class Fork:
     @property
     def github_repo(self):
         return self._github_repo
+
+    def __repr__(self):
+        return self._github_repo.full_name

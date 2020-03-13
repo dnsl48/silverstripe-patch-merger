@@ -1,10 +1,10 @@
 # removing the files "deleted by us"
 
+import logging
+
 from . import ConflictResolver
 
 class DeletedInNewerVersion(ConflictResolver):
-    _docker_client = None
-
     def isKnown(self, git_repo):
         # for file in [i[0] for i in git_repo.index.unmerged_blobs()]:
         #     if file not in [a[0][0] for a in git_repo.index.entries.items()]
@@ -20,6 +20,7 @@ class DeletedInNewerVersion(ConflictResolver):
 
         for file,blobs in git_repo.index.unmerged_blobs().items():
             if len(blobs) == 2:
+                logging.info('Removing %s', file)
                 git_repo.git.rm(file)
 
         return True

@@ -4,3 +4,7 @@ class ConflictResolver:
 
     def resolve(self, git_repo):
         pass
+
+    @property
+    def name(self):
+        return self.__class__.__qualname__

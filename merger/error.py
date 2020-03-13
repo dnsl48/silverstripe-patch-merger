@@ -1,0 +1,2 @@
+class UnresolvedConflictsError(Exception):
+    pass
